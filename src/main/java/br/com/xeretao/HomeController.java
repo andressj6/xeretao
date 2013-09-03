@@ -30,6 +30,9 @@ public class HomeController {
 
     @Path("/recomendacoes")
     public void recomendacoes() {
-        
+    }
+
+    @Path("/dashboard")
+    public void dashboard() {
     }
 }

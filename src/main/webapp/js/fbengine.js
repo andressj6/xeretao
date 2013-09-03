@@ -45,3 +45,76 @@ function checkLogin(callback) {
         }
     });
 }
+
+/**
+ * 
+ * @param {string} key palavra chave a ser buscada
+ * @param {function} destination onde o conteudo será inserido
+ * @returns boolean se a requisição foi efetuada
+ */
+function buscarPalavraChave(key, destination) {
+    var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 3)) / 1000);
+    FB.api({
+        method: 'fql.multiquery',
+        queries: {
+            query1: "SELECT actor_id, source_id, post_id, message, like_info FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me())   and created_time > " + oneWeekAgo + " and type IN (45, 56, 128, 247, 308) limit 150",
+            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)",
+            query3: "SELECT page_id, name, pic_small FROM page where page_id IN (SELECT actor_id FROM #query1)"
+        }
+    }, function(response) {
+        var posts = response[0].fql_result_set;
+        var sources = response[1].fql_result_set.concat(response[2].fql_result_set);
+        var relevantPosts = [];
+        for (var x = 0; x < posts.length; x++) {
+            var content = posts[x].message.toString();
+            if (content.toLowerCase().indexOf(key.toLowerCase()) >= 0) {
+                for (var y = 0; y < sources.length; y++) {
+                    if (posts[x].actor_id === sources[y].uid || posts[x].actor_id === sources[y].page_id) {
+                        posts[x].actor_name = sources[y].name;
+                        posts[x].actor_pic = sources[y].pic_small;
+                        break;
+                    }
+                }
+                relevantPosts.push(posts[x]);
+            }
+        }
+        destination.empty();
+        var list = $("<ul class='list-group'>");
+        for (var i in relevantPosts) {
+            var post = relevantPosts[i];
+            var li = $("<li class='list-group-item'>");
+            var img = $("<img src='" + post.actor_pic + "'>");
+            var spanContent = $("<span>").text(post.message);
+            li.append(img).append(spanContent);
+            list.append(li);
+        }
+        destination.append(list);
+        console.log(relevantPosts);
+        $("#btn-buscar").removeAttr("disabled");
+    });
+    return true;
+}
+
+
+/**
+ * 
+ * @returns boolean se a requisição foi efetuada
+ */
+function fotosMaisCurtidas() {
+    FB.api({
+        method: 'fql.query',
+        query: 'SELECT pid,like_info,src,src_big from photo where owner = me() order by like_info.like_count desc limit 10'
+    }, function(response) {
+        var list = $("<ul class='list-group'>");
+        for (var i in response) {
+            var foto = response[i];
+            var li = $("<li class='list-group-item'>");
+            var img = $("<img src='" + foto.src + "'>");
+            var spanContent = $("<span>").text(foto.like_info.like_count + " likes");
+            li.append(img).append(spanContent);
+            list.append(li);
+        }
+        $("#panel-photos .panel-body").append(list);
+    });
+    return true;
+}
