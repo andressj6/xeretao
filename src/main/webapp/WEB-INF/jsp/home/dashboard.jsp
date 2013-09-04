@@ -2,10 +2,7 @@
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <jsp:include page="../../includes/header.jsp" />
 <script type="text/javascript">
-    $(document).ready(function() {
-        var infos = ["photos", "posts-like", "posts-share"];
-        //fillDashboard(infos);
-    });
+    var infos = ["photos", "posts-like", "posts-share"];
 </script>
 <h3> Dashboard (in progress)</h3>
 <div class="panel panel-success" id="panel-photos">

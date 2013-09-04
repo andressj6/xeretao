@@ -98,7 +98,7 @@ function buscarPalavraChave(key, destination) {
 
 /**
  * 
- * @returns boolean se a requisição foi efetuada
+ * @returns html com o as fotos mais curtidas
  */
 function fotosMaisCurtidas() {
     FB.api({
@@ -116,5 +116,63 @@ function fotosMaisCurtidas() {
         }
         $("#panel-photos .panel-body").append(list);
     });
-    return true;
+}
+
+function postsMaisCurtidos() {
+    FB.api({
+        method: 'fql.query',
+        query: 'SELECT message, like_info from stream where source_id = me() and (created_time > 1357020000 and like_info.like_count > 0) order by like_info.like_count desc LIMIT 50;'
+    }, function(response) {
+        var list = $("<ul class='list-group'>");
+        for (var i in response) {
+            var post = response[i];
+            var li = $("<li class='list-group-item'>");
+            var spanQtd = $("<span style='font-weight: bold'>").text(post.like_info.like_count + " likes - ");
+            var spanContent = $("<span>").text(post.message);
+            li.append(spanQtd).append(spanContent);
+            list.append(li);
+        }
+        $("#panel-posts-like .panel-body").empty().append(list);
+    });
+}
+
+/**
+ * 
+ * */
+function postsMaisCompartilhados() {
+    FB.api({
+        method: 'fql.query',
+        query: 'SELECT message, share_count from stream where source_id = me() and created_time > 1357020000 and share_count > 0 order by share_count desc LIMIT 50;'
+    }, function(response) {
+        var list = $("<ul class='list-group'>");
+        for (var i in response) {
+            var post = response[i];
+            var li = $("<li class='list-group-item'>");
+            var spanQtd = $("<span style='font-weight: bold'>").text(post.share_count + " compartilhamentos - ");
+            var spanContent = $("<span>").text(post.message);
+            li.append(spanQtd).append(spanContent);
+            list.append(li);
+        }
+        $("#panel-posts-share .panel-body").empty().append(list);
+    });
+}
+
+/**
+ * @param {type} fields campos que serão retornados
+ */
+function fillDashboard(fields) {
+    for (var i in fields) {
+        var field = fields[i];
+        if (field === "photos") {
+            fotosMaisCurtidas();
+        }
+        if (field === "posts-like") {
+            postsMaisCurtidos();
+        }
+
+        if (field === "posts-share") {
+            postsMaisCompartilhados();
+        }
+    }
+
 }
