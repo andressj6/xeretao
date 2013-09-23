@@ -7,8 +7,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="/xeretao/js/jquery.js"></script>
         <script src="http://localhost:8080/xeretao/js/bootstrap.min.js"></script>
+        <script src="http://localhost:8080/xeretao/js/jqcloud.js"></script>
+        <script src="http://localhost:8080/xeretao/js/lawnchair-0.6.1.min.js"></script>
+        <script src="http://localhost:8080/xeretao/js/lawnchair-adapter-indexed-db-0.6.1.js"></script>
         <link href="http://localhost:8080/xeretao/css/bootstrap.min.css" rel="stylesheet" media="screen">
         <link href="http://localhost:8080/xeretao/css/layout.css" rel="stylesheet" media="screen">
+        <link href="http://localhost:8080/xeretao/css/jqcloud.css" rel="stylesheet" media="screen">
 
         <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
         <!--[if lt IE 9]>

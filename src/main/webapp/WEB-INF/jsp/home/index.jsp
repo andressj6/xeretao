@@ -19,7 +19,7 @@
             $(document).ready(function() {
                 $("#btn_login").click(function() {
                     return checkLogin(function() {
-                        window.location = "/xeretao/home/recomendacoes";
+                        window.location = "/xeretao/home/dashboard";
                     });
                 });
             });
