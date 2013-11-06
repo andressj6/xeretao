@@ -1,3 +1,6 @@
+var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 3)) / 1000);
+var urlPattern = /(http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?/g;
+var favoritos = [];
 window.fbAsyncInit = function() {
     // init the FB JS SDK
     FB.init({
@@ -35,18 +38,22 @@ $(document).ready(function() {
 
 var friendList = [];
 
-setTimeout(function() {
-    FB.api({
-        method: "fql.query",
-        query: "select uid2 from friend where uid1 = me()"
-    }, function(response) {
-        for (var rp in response) {
-            var friend = response[rp];
-            friendList.push(friend.uid2);
-        }
-    });
-    fillDashboard(infos);
-}, 4000);
+/*setTimeout(function() {
+ FB.api({
+ method: "fql.query",
+ query: "select uid2 from friend where uid1 = me()"
+ }, function(response) {
+ for (var rp in response) {
+ var friend = response[rp];
+ friendList.push(friend.uid2);
+ }
+ });
+ FB.api("/me?fields=name,picture.type(square)", function(response){
+ $(".user-name").html(response.name);
+ $(".user-avatar").html("<img src='"+response.picture.data.url+"' />")
+ });
+ //fillDashboard(infos);
+ }, 4000);*/
 
 function checkLogin(callback) {
     FB.getLoginStatus(function(response) {
@@ -69,7 +76,7 @@ function checkLogin(callback) {
                     alert("Não foi possivel efetuar o login no facebook");
                     return false;
                 }
-            });
+            }, {scope:"email, publish_stream, user_birthday, user_location, user_work_history user_about_me, user_hometown, user_friends, read_stream"});
         }
     });
 }
@@ -77,56 +84,89 @@ function checkLogin(callback) {
 /**
  * 
  * @param {string} key palavra chave a ser buscada
- * @param {function} destination onde o conteudo será inserido
  * @returns boolean se a requisição foi efetuada
  */
-function buscarPalavraChave(key, destination) {
+function buscarPalavraChave(key) {
     var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 3)) / 1000);
-    destination.empty().append("<img src='/xeretao/img/load.gif' />");
+    var dest = $("#panel-busca-posts div");
     FB.api({
         method: 'fql.multiquery',
         queries: {
-            query1: "SELECT actor_id, source_id, post_id, message, like_info, comment_info FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me())   and created_time > " + oneWeekAgo + " and type IN (45, 56, 128, 247, 308) limit 150",
+            query1: "SELECT actor_id, source_id, post_id, message, like_info, comment_info, share_info FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me())   and created_time > " + oneWeekAgo + " and type IN (45, 56, 128, 247, 308) limit 150",
             query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)",
             query3: "SELECT page_id, name, pic_small FROM page where page_id IN (SELECT actor_id FROM #query1)"
         }
     }, function(response) {
         var posts = response[0].fql_result_set;
         var sources = response[1].fql_result_set.concat(response[2].fql_result_set);
-        var relevantPosts = [];
-        for (var x = 0; x < posts.length; x++) {
-            var content = posts[x].message.toString();
-            if (content.toLowerCase().indexOf(key.toLowerCase()) >= 0) {
-                for (var y = 0; y < sources.length; y++) {
-                    if (posts[x].actor_id === sources[y].uid || posts[x].actor_id === sources[y].page_id) {
-                        posts[x].actor_name = sources[y].name;
-                        posts[x].actor_pic = sources[y].pic_small;
+        var processedPosts = [];
+        for (var i in posts) {
+            var post = posts[i];
+                if(post.message.toLowerCase().indexOf(key.toLowerCase()) != -1) {
+                for (var x = 0; x < sources.length; x++) {
+                    if (post.actor_id == sources[x].uid || post.actor_id == sources[x].page_id) {
+                        post.source_pic = sources[x].pic_small;
+                        post.source_name = sources[x].name;
                         break;
                     }
                 }
-                relevantPosts.push(posts[x]);
+                processedPosts.push(post);
             }
         }
-        destination.empty();
-        var list = $("<ul class='list-group'>");
-        for (var i in relevantPosts) {
-            var post = relevantPosts[i];
-            var li = $("<li class='list-group-item'>");
-            var html = "<img src='" + post.actor_pic + "' />" +
-                    "<div>" +
-                    "<h4>" + post.actor_name + "</h4>" + post.message +
-                    "</div>";
-            li.append(html);
-            addCommentBlock(post.post_id, post.comment_info.comment_count, li);
-            list.append(li);
-        }
-        destination.append(list);
-        $("#btn-buscar").removeAttr("disabled");
+        dest.prev().text("Resultados da Busca por " + key + " em postagens");
+        createItemList(dest, processedPosts);
     });
-    return true;
+}
+
+/**
+ * 
+ */
+function gerarListaFavoritos(){
+
+    FB.api({
+        method: 'fql.query',
+        query: 'SELECT uid, name, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())'
+    }, function (response){
+        var res = "";
+        for (var i in response){
+            var friend = response[i];
+            var htmlFriend = '<div class="col-md-3"><div class="checkbox"><label><input type="checkbox" data-friend-id="'+friend.uid+'" />'+ 
+                    '<img style="margin-left: 25px;" src="'+friend.pic_square+'" /> <br /><strong>'+ friend.name + '</strong>' + 
+                ' </label></div></div>';
+                res += htmlFriend;
+        }
+        $("#modal-favoritos .modal-body").empty().append(res);
+    });
 }
 
 
+function saveAndReloadFavoritos(){
+    var listaStr = friendList.join(",");
+    var dest = $("#panel-posts-favoritos div");
+    dest.empty().append("<img src='/xeretao/img/load.gif' />");
+    FB.api({
+        method: 'fql.multiquery',
+        queries: {
+            query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and uid in ("+ listaStr+") and like_info.like_count > 0 order by like_info.like_count desc limit 20",
+            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)"
+        }
+    }, function (response){
+        var posts = response[0].fql_result_set;
+        var sources = response[1].fql_result_set;
+        var processedPosts = [];
+        for (var i in posts) {
+            var post = posts[i];
+            for (var x = 0; x < sources.length; x++) {
+                if (post.actor_id == sources[x].uid) {
+                    post.source_pic = sources[x].pic_small;
+                    post.source_name = sources[x].name;
+                    break;
+                }
+            }
+            processedPosts.push(post);
+        }
+    });
+}
 /**
  * 
  * @param {string} palavra chave da busca
@@ -134,13 +174,16 @@ function buscarPalavraChave(key, destination) {
  * @returns {void} 
  */
 function buscarPalavraComentarios(palavra, destination) {
-    var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 5)) / 1000);
     destination.empty().append("<img src='/xeretao/img/load.gif' />");
-    FB.api("/me/home?fields=comments.filter(toplevel).limit(10).fields(message,from,like_count)&since=" + oneWeekAgo, function(response) {
+    FB.api("/me/home?fields=id,message,picture,full_picture,from,name,description,comments.filter(toplevel).limit(10).fields(id,message,from,like_count,attachment,comment_count)&since=" + oneWeekAgo, function(response) {
         destination.empty();
         var list = $("<ul class='list-group'>");
-        var commentList = [];
+        var postList = [];
         for (var i in response.data) {
+            var p = {
+                commentList: []
+            };
+
             var post = response.data[i];
             var comments = post.comments;
             if (!comments) {
@@ -149,15 +192,40 @@ function buscarPalavraComentarios(palavra, destination) {
             var j = 0;
             for (j in comments.data) {
                 var comment = comments.data[j];
-                if (comment.message.toLowerCase().contains(palavra.toLowerCase()) && friendList.indexOf(comment.from.id) >= 0) {
-                    commentList.push(comment);
+                if (comment.message.toLowerCase().contains(palavra.toLowerCase())) {
+                    p.commentList.push(comment);
                 }
             }
+            if (p.commentList.length > 0) {
+                p.name = post.from.name;
+                p.id = post.id;
+                if (post.picture != undefined) {
+                    p.picture = post.picture;
+                }
+                if (post.full_picture != undefined) {
+                    p.full_picture = post.full_picture;
+                }
+                if (post.message != undefined) {
+                    p.message = post.message;
+                }
+                postList.push(p);
+            }
         }
-        console.log("Comentários Selecionados");
-        console.log(commentList);
-        console.log("Resposta Bruta");
-        console.log(response);
+        var list = $("<ul class='list-group'>");
+        for (var x in postList) {
+            var postagem = postList[x];
+            var li = $("<li class='list-group-item'>");
+            var html = "" +
+                    "<div>" +
+                    "<h4><strong>" + postagem.name + "</strong></h4><br />" + (postagem.message != undefined ? postagem.message : "") +
+                    (postagem.full_picture != undefined ? "<br /><img src='" + postagem.full_picture + "' style='max-width: 400px;'/>" : "") +
+                    "</div>";
+            li.append(html);
+            addCommentBlock(postagem.id, "", li);
+            list.append(li);
+        }
+        destination.empty().append(list);
+        console.log(postList);
     });
 }
 
@@ -166,7 +234,6 @@ function buscarPalavraComentarios(palavra, destination) {
 var palavras;
 function gerarTagCloud() {
     var tags = [];
-    var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 3)) / 1000);
     FB.api({
         method: "fql.query",
         //46,  80, 257
@@ -212,40 +279,113 @@ function gerarTagCloud() {
  * @returns html com o as fotos mais curtidas
  */
 function fotosMaisCurtidas() {
+    var dest = $("#panel-curtidas-fotos div");
+    dest.empty().append("<img src='/xeretao/img/load.gif' />");
     FB.api({
-        method: 'fql.query',
-        query: 'SELECT pid,like_info,src,src_big, comment_info, object_id from photo where owner = me() order by like_info.like_count desc limit 10'
-    }, function(response) {
-        var list = $("<ul class='list-group'>");
-        for (var i in response) {
-            var foto = response[i];
-            var li = $("<li class='list-group-item'>");
-            var img = $("<img src='" + foto.src + "'>");
-            var spanContent = $("<span>").text(foto.like_info.like_count + " likes");
-            li.append(img).append(spanContent);
-            list.append(li);
-            addCommentBlock(foto.object_id, foto.comment_info.comment_count, li);
+        method: 'fql.multiquery',
+        queries: {
+            query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and type IN (247) and like_info.like_count > 0 order by like_info.like_count desc limit 20",
+            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)",
+            query3: "SELECT page_id, name, pic_small FROM page where page_id IN (SELECT actor_id FROM #query1)"
         }
-        $("#panel-photos .panel-body").append(list);
+    }, function(response) {
+        var posts = response[0].fql_result_set;
+        var sources = response[1].fql_result_set.concat(response[2].fql_result_set);
+        var processedPosts = [];
+        for (var i in posts) {
+            var post = posts[i];
+            for (var x = 0; x < sources.length; x++) {
+                if (post.actor_id == sources[x].uid || post.actor_id == sources[x].page_id) {
+                    post.source_pic = sources[x].pic_small;
+                    post.source_name = sources[x].name;
+                    break;
+                }
+            }
+            processedPosts.push(post);
+        }
+        createItemList(dest, processedPosts);
     });
 }
 
-function postsMaisCurtidos() {
-    FB.api({
-        method: 'fql.query',
-        query: 'SELECT message, like_info, comment_info, post_id from stream where source_id = me() or source_id in (SELECT uid2 FROM friend WHERE uid1 = me()) and (created_time > 1357020000 and like_info.like_count > 0) order by like_info.like_count desc LIMIT 50;'
-    }, function(response) {
-        var list = $("<ul class='list-group'>");
-        for (var i in response) {
-            var post = response[i];
-            var li = $("<li class='list-group-item'>");
-            var spanQtd = $("<span style='font-weight: bold'>").text(post.like_info.like_count + " likes - ");
-            var spanContent = $("<span>").text(post.message);
-            li.append(spanQtd).append(spanContent);
-            list.append(li);
-            addCommentBlock(post.post_id, post.comment_info.comment_count, li);
+function replaceAll(string, token, newtoken) {
+    while (string.indexOf(token) != -1) {
+        string = string.replace(token, newtoken);
+    }
+    return string;
+}
+
+function createItemList(target, postList) {
+    target.empty();
+    for (var i in postList) {
+        var post = postList[i];
+        var attachment = "";
+        if (post.attachment != undefined) {
+            if (post.attachment.fb_object_type == "photo" || post.attachment.fb_object_type == "album") {
+                var foto = post.attachment.media[0].src;
+                attachment = "<img src='" + foto + "' />";
+            } else if (post.attachment.media != undefined && post.attachment.media[0].type == "link"){
+                var obj = post.attachment.media[0];
+                var link = "";
+                attachment = "<div class='well'>"
+                        + "<a href='"+ obj.href+"'>"
+                        + "<img src='"+ obj.src +"' /><br />"
+                        + "<span>" + post.attachment.name +"</span>"
+                        + "</a>"
+                        + "</div>";
+            }
         }
-        $("#panel-posts-like .panel-body").empty().append(list);
+        var links = post.message.match(urlPattern);
+        for (var matches in links) {
+            var match = links[matches];
+            var link = "<a href='" + match + "'>" + match + "</a>";
+            post.message = post.message.replace(match, link);
+        }
+        var socialButtons = "<div>"
+                + "<span class='glyphicon glyphicon-thumbs-up' style='padding: 0px 5px'></span>" + post.like_info.like_count
+                + "<span class='glyphicon glyphicon-comment' style='padding: 0px 5px'></span>"+ post.comment_info.comment_count 
+                + "<span class='glyphicon glyphicon-bullhorn' style='padding: 0px 5px'></span>"+ post.share_info.share_count 
+                + "</div>";
+        var html = "<h4 class='list-group-item-heading'><img src='" + post.source_pic + "' />" + post.source_name + "</h4>"
+                + "<p class='list-group-item-text'>"
+                + (post.message != undefined ? replaceAll(post.message, "\n", "<br />") + "<br />" : "")
+                + (attachment != "" ? attachment : "") + "<br />"
+                + socialButtons
+                + "</p>";
+        var a = $("<a href='#' class='list-group-item' data-post='"+post.post_id+"'>").append(html);
+        a.click(function(){
+            carregarPost($(this).data("post"));
+        });
+        target.append(a);
+    }
+}
+
+function postsMaisCurtidos() {
+    var dest = $("#panel-curtidas-posts div");
+    dest.empty().append("<img src='/xeretao/img/load.gif' />");
+    FB.api({
+        method: 'fql.multiquery',
+        queries: {
+            query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and like_info.like_count > 0 order by like_info.like_count desc limit 20",
+            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)",
+            query3: "SELECT page_id, name, pic_small FROM page where page_id IN (SELECT actor_id FROM #query1)"
+        }
+    }, function(response) {
+        var posts = response[0].fql_result_set;
+        var sources = response[1].fql_result_set.concat(response[2].fql_result_set);
+        var processedPosts = [];
+        for (var i in posts) {
+            var post = posts[i];
+            for (var x = 0; x < sources.length; x++) {
+                if (post.actor_id == sources[x].uid || post.actor_id == sources[x].page_id) {
+                    post.source_pic = sources[x].pic_small;
+                    post.source_name = sources[x].name;
+                    break;
+                }
+            }
+            processedPosts.push(post);
+        }
+        
+        createItemList(dest, processedPosts);
     });
 }
 
@@ -253,21 +393,32 @@ function postsMaisCurtidos() {
  * 
  * */
 function postsMaisCompartilhados() {
+    var dest = $("#panel-shares-posts div");
+    dest.empty().append("<img src='/xeretao/img/load.gif' />");
     FB.api({
-        method: 'fql.query',
-        query: 'SELECT message, share_count, comment_info, post_id from stream where source_id = me() or source_id in (SELECT uid2 FROM friend WHERE uid1 = me()) and created_time > 1357020000 and share_count > 0 order by share_count desc LIMIT 50;'
-    }, function(response) {
-        var list = $("<ul class='list-group'>");
-        for (var i in response) {
-            var post = response[i];
-            var li = $("<li class='list-group-item'>");
-            var spanQtd = $("<span style='font-weight: bold'>").text(post.share_count + " compartilhamentos - ");
-            var spanContent = $("<span>").text(post.message);
-            li.append(spanQtd).append(spanContent);
-            list.append(li);
-            addCommentBlock(post.post_id, post.comment_info.comment_count, li);
+        method: 'fql.multiquery',
+        queries: {
+            query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and share_info.share_count > 0 order by share_info.share_count desc limit 20",
+            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)",
+            query3: "SELECT page_id, name, pic_small FROM page where page_id IN (SELECT actor_id FROM #query1)"
         }
-        $("#panel-posts-share .panel-body").empty().append(list);
+    }, function(response) {
+        var posts = response[0].fql_result_set;
+        var sources = response[1].fql_result_set.concat(response[2].fql_result_set);
+        var processedPosts = [];
+        for (var i in posts) {
+            var post = posts[i];
+            for (var x = 0; x < sources.length; x++) {
+                if (post.actor_id == sources[x].uid || post.actor_id == sources[x].page_id) {
+                    post.source_pic = sources[x].pic_small;
+                    post.source_name = sources[x].name;
+                    break;
+                }
+            }
+            processedPosts.push(post);
+        }
+        
+        createItemList(dest, processedPosts);
     });
 }
 
@@ -288,7 +439,6 @@ function fillDashboard(fields) {
             postsMaisCompartilhados();
         }
     }
-
 }
 
 /**
@@ -307,7 +457,7 @@ function addCommentBlock(postId, qtdComments, block) {
 
     well.append(link).append(ulComments);
 
-    if (qtdComments > 0) {
+    if (qtdComments > 0 || qtdComments == "") {
         link.click(function() {
             ulComments.empty();
             FB.api('/' + postId + '/comments?fields=id,message,like_count,user_likes,from.fields(picture,name)', function(response) {
@@ -349,13 +499,19 @@ function addCommentBlock(postId, qtdComments, block) {
  */
 function addLikeButton(sourceId, likeCount, userLikes) {
     var p = $("<p>");
-    var botao = $("<button class='btn " + (userLikes === true ? "btn-success" : "btn-default") + " btn-xs'>" + (userLikes === true ? "Curti!" : "Curtir?") + "</button>");
-
+    var html = "<a onclick='likeObject(" + sourceId + ")' id='like_'" + sourceId + ">" + userLikes ? "Curtir" : "Curti!" + "(" + likeCount + ")</a>";
+    p.append(html);
     return p;
 }
 
 function likeObject(sourceId) {
-
+    FB.api("/" + sourceId + "/likes", 'post', function(response) {
+        if (!response || response.error) {
+            alert("Erro");
+        } else {
+            console.log(response);
+        }
+    });
 }
 
 /**
@@ -370,5 +526,48 @@ function sendComment(postId) {
         } else {
             console.log(response);
         }
+    });
+}
+
+
+
+function loadFavorites() {
+    FB.getLoginStatus(function(response) {
+        if (response.status === 'connected') {
+            var uid = response.authResponse.userID;
+            $.ajax({
+                url: "/xeretao/home/loadFavorites",
+                data: "id=" + uid,
+                success: function(response) {
+                    return JSON.parse(response);
+                }
+            });
+        } else {
+            // the user isn't logged in to Facebook.
+        }
+    });
+}
+
+function saveFavorites() {
+    FB.getLoginStatus(function(response) {
+        if (response.status === 'connected') {
+            var uid = response.authResponse.userID;
+            $.ajax({
+                url: "/xeretao/home/loadFavorites",
+                data: "id=" + uid,
+                success: function(response) {
+                    return JSON.parse(response);
+                }
+            });
+        } else {
+            // the user isn't logged in to Facebook.
+        }
+    });
+}
+
+function carregarPost(postId){
+    FB.api("/"+postId+"", function(response){
+        console.log(response);
+        $("#modal-post").modal("show");
     });
 }

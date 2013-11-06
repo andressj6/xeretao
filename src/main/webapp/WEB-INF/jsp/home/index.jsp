@@ -19,7 +19,26 @@
             $(document).ready(function() {
                 $("#btn_login").click(function() {
                     return checkLogin(function() {
-                        window.location = "/xeretao/home/dashboard";
+                        FB.api("/me?fields=name,picture.type(square),email,id", function(response) {
+                            var params = {
+                                usuario: {
+                                    id: response.id,
+                                    email: response.email,
+                                    name: response.name,
+                                    picture_sq: response.picture.data.url,
+                                    favorites: ""
+                                }
+                            };
+                            $.ajax({
+                                url: "/xeretao/home/login",
+                                data: JSON.stringify(params),
+                                type: "POST",
+                                contentType: "application/json",
+                                success: function(response) {
+                                    window.location = "/xeretao/home/dashboard";
+                                }
+                            });
+                        })
                     });
                 });
             });

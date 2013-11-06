@@ -23,8 +23,8 @@
     <body>
         <div id="fb-root"></div>
         <script type="text/javascript" src="/xeretao/js/fbengine.js"></script>
-        <header class="navbar navbar-default" role="navigation">
-            <!-- Brand and toggle get grouped for better mobile display -->
+        <!--<header class="navbar navbar-s" role="navigation">
+            <!-- Brand and toggle get grouped for better mobile display 
             <div class="navbar-header">
                 <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
                     <span class="sr-only">Toggle navigation</span>
@@ -37,7 +37,7 @@
                 <a class="navbar-brand" href="#">Xeretão</a>
             </div>
 
-            <!-- Collect the nav links, forms, and other content for toggling -->
+            <!-- Collect the nav links, forms, and other content for toggling 
             <div class="collapse navbar-collapse navbar-ex1-collapse">
                 <ul class="nav navbar-nav">
                     <li class="active"><a href="#">Home</a></li>
@@ -47,7 +47,7 @@
                     <li><a href="#">Trending <span class="badge">23</span></a></li>
                     <li><a href="#">Comportamento <span class="badge">23</span></a></li>
                 </ul>
-            </div><!-- /.navbar-collapse -->
-        </header>
+            </div><!-- /.navbar-collapse >
+        </header-->
 
-        <div class="container" style="margin-left: auto; margin-right: auto;">
+        <div style="overflow: hidden; height: auto !important; margin: 0 auto -60px; min-height: 100%; padding: 0 0 60px;">
