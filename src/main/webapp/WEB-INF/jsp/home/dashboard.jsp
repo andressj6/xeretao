@@ -9,9 +9,11 @@
                 fotosMaisCurtidas();
                 postsMaisCurtidos();
                 postsMaisCompartilhados();
-                gerarListaFavoritos();
-                $('#modal-preload').modal('hide');
-            }, 5000);
+                saveAndReloadFavoritos();
+                setTimeout(function(){
+                    $('#modal-preload').modal('hide');
+                }, 5000);
+            }, 2000);
         }).modal('show');
 
         $("#btn-buscar").click(function() {
@@ -40,7 +42,7 @@
     <div class="scroll-content">
         <div class="panel panel-default">
             <!-- Default panel contents -->
-            <div class="panel-heading">Postagens dos Favoritos <a href="#" class="btn btn-default btn-sm" onclick="$('#modal-favoritos').modal('show');"><span class="glyphicon glyphicon-edit" /></a></div>
+            <div class="panel-heading" style="height: 41px;"> <div>Postagens dos Favoritos <a href="#" class="btn btn-default btn-sm" style="float: right; margin-top: -3px;" onclick="$('#modal-favoritos').modal('show');"><span class="glyphicon glyphicon-edit" /></a></div></div>
             <div class="panel-content" id="panel-posts-favoritos">
                 <div class="list-group">
                 </div>
@@ -97,10 +99,26 @@
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-                <h4 class="modal-title">Informações sobre a Postagem</h4>
+                <h4 class="modal-title"><strong>Informações sobre a Postagem</strong></h4>
             </div>
             <div class="modal-body">
-
+                <table>
+                    <tr>
+                        <td id="img-post"></td>
+                        <td id="autor-post"></td>
+                    </tr>
+                </table>
+                <div class="content-post">
+                    
+                </div>
+                <div class="social-info">
+                    <span class='glyphicon glyphicon-thumbs-up' style='padding: 0px 5px'></span>
+                    <span class='glyphicon glyphicon-comment' style='padding: 0px 5px'></span>
+                    <span class='glyphicon glyphicon-bullhorn' style='padding: 0px 5px'></span>
+                </div>
+                <div class="well well-sm comment-post">
+                    
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
@@ -120,10 +138,12 @@
                 <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
                 <h4 class="modal-title">Adicionar amigos aos Favoritos</h4>
             </div>
-            <div class="modal-body" style="overflow-y: scroll; height: 300px;">
+            <div class="modal-body">
+                <div class="busca"><input type="text" class="form-control input-sm" id="busca-fav" placeholder="Pesquisar" onkeyup="filtrarListaFavoritos(this.value);" /></div>
+                <div class="lista" style="overflow-y: scroll; height: 300px;"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-info" data-dismiss="modal" onclick="saveAndReloadFavoritos();">Salvar</button>
             </div>
         </div><!-- /.modal-content -->
     </div><!-- /.modal-dialog -->

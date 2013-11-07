@@ -1,6 +1,6 @@
 var oneWeekAgo = Math.round((new Date().setDate(new Date().getDate() - 3)) / 1000);
 var urlPattern = /(http|ftp|https):\/\/[\w-]+(\.[\w-]+)+([\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?/g;
-var favoritos = [];
+var friendList = [629502649, 1165377221, 1373777914, 1547432010, 1571950834, 100000446912154, 100001934282085, 100002089010840];
 window.fbAsyncInit = function() {
     // init the FB JS SDK
     FB.init({
@@ -36,7 +36,6 @@ $(document).ready(function() {
 
 
 
-var friendList = [];
 
 /*setTimeout(function() {
  FB.api({
@@ -76,7 +75,7 @@ function checkLogin(callback) {
                     alert("Não foi possivel efetuar o login no facebook");
                     return false;
                 }
-            }, {scope:"email, publish_stream, user_birthday, user_location, user_work_history user_about_me, user_hometown, user_friends, read_stream"});
+            }, {scope: "email, publish_stream, user_birthday, user_location, user_work_history user_about_me, user_hometown, user_friends, read_stream"});
         }
     });
 }
@@ -102,7 +101,7 @@ function buscarPalavraChave(key) {
         var processedPosts = [];
         for (var i in posts) {
             var post = posts[i];
-                if(post.message.toLowerCase().indexOf(key.toLowerCase()) != -1) {
+            if (post.message.toLowerCase().indexOf(key.toLowerCase()) != -1) {
                 for (var x = 0; x < sources.length; x++) {
                     if (post.actor_id == sources[x].uid || post.actor_id == sources[x].page_id) {
                         post.source_pic = sources[x].pic_small;
@@ -118,54 +117,81 @@ function buscarPalavraChave(key) {
     });
 }
 
+function filtrarListaFavoritos(nome) {
+    if (nome == "") {
+        $("#modal-favoritos .modal-body .lista .col-md-3").show();
+    } else {
+        $("#modal-favoritos .modal-body .lista .col-md-3").each(function() {
+            if ($(this).find("strong").text().contains(nome)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    }
+}
+
 /**
  * 
  */
-function gerarListaFavoritos(){
-
+function gerarListaFavoritos() {
     FB.api({
         method: 'fql.query',
         query: 'SELECT uid, name, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me())'
-    }, function (response){
+    }, function(response) {
         var res = "";
-        for (var i in response){
+        for (var i in response) {
             var friend = response[i];
-            var htmlFriend = '<div class="col-md-3"><div class="checkbox"><label><input type="checkbox" data-friend-id="'+friend.uid+'" />'+ 
-                    '<img style="margin-left: 25px;" src="'+friend.pic_square+'" /> <br /><strong>'+ friend.name + '</strong>' + 
-                ' </label></div></div>';
-                res += htmlFriend;
+            var htmlFriend = '<div class="col-md-3"><div class="checkbox"><label><input type="checkbox" data-friend-id="' + friend.uid + '" />' +
+                    '<img style="margin-left: 25px;" src="' + friend.pic_square + '" /> <br /><strong>' + friend.name + '</strong>' +
+                    ' </label></div></div>';
+            res += htmlFriend;
         }
-        $("#modal-favoritos .modal-body").empty().append(res);
+        $("#modal-favoritos .modal-body .lista").empty().append(res);
     });
 }
 
 
-function saveAndReloadFavoritos(){
-    var listaStr = friendList.join(",");
-    var dest = $("#panel-posts-favoritos div");
-    dest.empty().append("<img src='/xeretao/img/load.gif' />");
-    FB.api({
-        method: 'fql.multiquery',
-        queries: {
-            query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and uid in ("+ listaStr+") and like_info.like_count > 0 order by like_info.like_count desc limit 20",
-            query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)"
-        }
-    }, function (response){
-        var posts = response[0].fql_result_set;
-        var sources = response[1].fql_result_set;
-        var processedPosts = [];
-        for (var i in posts) {
-            var post = posts[i];
-            for (var x = 0; x < sources.length; x++) {
-                if (post.actor_id == sources[x].uid) {
-                    post.source_pic = sources[x].pic_small;
-                    post.source_name = sources[x].name;
-                    break;
-                }
-            }
-            processedPosts.push(post);
-        }
+function saveAndReloadFavoritos() {
+    friendList = [];
+    $("#modal-favoritos .modal-body input[type=checkbox]:checked").each(function() {
+        friendList.push($(this).data("friend-id"));
     });
+    
+    if (friendList.length > 0) {
+        var listaStr = friendList.join(",");
+        var dest = $("#panel-posts-favoritos div");
+        dest.empty().append("<img src='/xeretao/img/load.gif' />");
+        FB.api({
+            method: 'fql.multiquery',
+            queries: {
+                query1: "SELECT post_id, message,attachment, like_info, comment_info, share_info, actor_id FROM stream WHERE filter_key IN (SELECT filter_key FROM stream_filter WHERE type = 'newsfeed' and uid = me()) and actor_id in (" + listaStr + ") order by like_info.like_count desc limit 20",
+                query2: "SELECT uid, name, pic_small FROM user WHERE uid IN (SELECT actor_id FROM #query1)"
+            }
+        }, function(response) {
+            var posts = response[0].fql_result_set;
+            var sources = response[1].fql_result_set;
+            var processedPosts = [];
+            for (var i in posts) {
+                var post = posts[i];
+                for (var x = 0; x < sources.length; x++) {
+                    if (post.actor_id == sources[x].uid) {
+                        post.source_pic = sources[x].pic_small;
+                        post.source_name = sources[x].name;
+                        break;
+                    }
+                }
+                processedPosts.push(post);
+            }
+            if (processedPosts.length > 0) {
+                createItemList(dest, processedPosts);
+            } else {
+                dest.empty().text("Não existem postagens recentes dos seus favoritos");
+            }
+        });
+    } else {
+        $("#panel-posts-favoritos .list-group").text("Você não possui nenhum amigo Favorito");
+    }
 }
 /**
  * 
@@ -323,13 +349,13 @@ function createItemList(target, postList) {
             if (post.attachment.fb_object_type == "photo" || post.attachment.fb_object_type == "album") {
                 var foto = post.attachment.media[0].src;
                 attachment = "<img src='" + foto + "' />";
-            } else if (post.attachment.media != undefined && post.attachment.media[0].type == "link"){
+            } else if (post.attachment.media != undefined && post.attachment.media[0].type == "link") {
                 var obj = post.attachment.media[0];
                 var link = "";
                 attachment = "<div class='well'>"
-                        + "<a href='"+ obj.href+"'>"
-                        + "<img src='"+ obj.src +"' /><br />"
-                        + "<span>" + post.attachment.name +"</span>"
+                        + "<a href='" + obj.href + "'>"
+                        + "<img src='" + obj.src + "' /><br />"
+                        + "<span>" + post.attachment.name + "</span>"
                         + "</a>"
                         + "</div>";
             }
@@ -342,17 +368,20 @@ function createItemList(target, postList) {
         }
         var socialButtons = "<div>"
                 + "<span class='glyphicon glyphicon-thumbs-up' style='padding: 0px 5px'></span>" + post.like_info.like_count
-                + "<span class='glyphicon glyphicon-comment' style='padding: 0px 5px'></span>"+ post.comment_info.comment_count 
-                + "<span class='glyphicon glyphicon-bullhorn' style='padding: 0px 5px'></span>"+ post.share_info.share_count 
+                + "<span class='glyphicon glyphicon-comment' style='padding: 0px 5px'></span>" + post.comment_info.comment_count
+                + "<span class='glyphicon glyphicon-bullhorn' style='padding: 0px 5px'></span>" + post.share_info.share_count
                 + "</div>";
-        var html = "<h4 class='list-group-item-heading'><img src='" + post.source_pic + "' />" + post.source_name + "</h4>"
+        var html = "<h4 class='list-group-item-heading'>"
+                + "<table><tr>"
+                + "<td><img src='" + post.source_pic + "' /></td><td>" + post.source_name + "</td>"
+                + "</tr></table></h4>"
                 + "<p class='list-group-item-text'>"
                 + (post.message != undefined ? replaceAll(post.message, "\n", "<br />") + "<br />" : "")
                 + (attachment != "" ? attachment : "") + "<br />"
                 + socialButtons
                 + "</p>";
-        var a = $("<a href='#' class='list-group-item' data-post='"+post.post_id+"'>").append(html);
-        a.click(function(){
+        var a = $("<a href='#' class='list-group-item' data-post='" + post.post_id + "'>").append(html);
+        a.click(function() {
             carregarPost($(this).data("post"));
         });
         target.append(a);
@@ -384,7 +413,7 @@ function postsMaisCurtidos() {
             }
             processedPosts.push(post);
         }
-        
+
         createItemList(dest, processedPosts);
     });
 }
@@ -417,7 +446,7 @@ function postsMaisCompartilhados() {
             }
             processedPosts.push(post);
         }
-        
+
         createItemList(dest, processedPosts);
     });
 }
@@ -565,9 +594,12 @@ function saveFavorites() {
     });
 }
 
-function carregarPost(postId){
-    FB.api("/"+postId+"", function(response){
-        console.log(response);
+function carregarPost(postId) {
+    FB.api("/" + postId + "?fields=picture,likes.summary(true).limit(1),from.fields(name,picture),comments.summary(true)", function(response) {
+        var post = response;
+        $("#img-post").empty().append("<img src='" + post.from.picture.data.url + "' />");
+        $("#autor-post").empty().text(post.from.name);
         $("#modal-post").modal("show");
+        console.log(response);
     });
 }
